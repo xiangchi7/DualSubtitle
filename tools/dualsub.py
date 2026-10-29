@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
+import glob
 import json
 import os
 import re
@@ -29,10 +30,72 @@ import sys
 import time
 import xml.etree.ElementTree as ET
 
-YABBER_DIR = r"D:\game\TOOL\Yabber\Yabber 1.3.1"
-DEFAULT_GAME = r"D:\steam\steamapps\common\DARK SOULS III\Game"
+YABBER_DIR = os.environ.get("YABBER_DIR", "")
 DEFAULT_OUT = r"D:\game\dark souls3\mod\DualSubtitle"
 DEFAULT_CONFIG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dualsub.config.json")
+
+YABBER_HELP = (
+    "Yabber 未找到 / Yabber not found.\n"
+    "  用 --yabber 参数、config 里的 \"yabber_dir\"、或 YABBER_DIR 环境变量指向\n"
+    "  同时含 Yabber.exe 与 Yabber.DCX.exe 的文件夹。\n"
+    "  Pass --yabber <dir>, set \"yabber_dir\" in the config, or set the YABBER_DIR\n"
+    "  environment variable to the folder holding Yabber.exe and Yabber.DCX.exe.\n"
+    "  Download: https://github.com/JKAnderson/Yabber/releases"
+)
+
+
+def find_yabber(hint: str = "") -> str:
+    """定位 Yabber 目录（必须同时有 Yabber.exe 和 Yabber.DCX.exe）。"""
+    cands = []
+    if hint:
+        cands.append(hint)
+    if YABBER_DIR:
+        cands.append(YABBER_DIR)
+    exe = shutil.which("Yabber.exe") or shutil.which("Yabber")
+    if exe:
+        cands.append(os.path.dirname(os.path.abspath(exe)))
+    roots = [
+        r"D:\game\TOOL", r"D:\Tools", r"D:\tool", r"C:\Tools", r"C:\tool",
+        os.environ.get("LOCALAPPDATA", ""), os.path.expanduser("~\\Downloads"),
+        os.path.expanduser("~"),
+    ]
+    for root in roots:
+        if not root or not os.path.isdir(root):
+            continue
+        for pat in ("Yabber*", os.path.join("*", "Yabber*")):
+            cands.extend(sorted(glob.glob(os.path.join(root, pat))))
+    for c in cands:
+        if c and os.path.isfile(os.path.join(c, "Yabber.exe")) \
+                and os.path.isfile(os.path.join(c, "Yabber.DCX.exe")):
+            return os.path.abspath(c)
+    raise SystemExit(YABBER_HELP)
+
+
+def default_game() -> str:
+    """自动定位 DS3 的 Game 目录（环境变量 -> Steam 库 -> 常见路径）。"""
+    env = os.environ.get("DS3_GAME_DIR", "")
+    if env and os.path.isfile(os.path.join(env, "DarkSoulsIII.exe")):
+        return env
+    roots = []
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Valve\Steam") as k:
+            steam = winreg.QueryValueEx(k, "SteamPath")[0]
+        roots.append(steam)
+        vdf = os.path.join(steam, "steamapps", "libraryfolders.vdf")
+        if os.path.isfile(vdf):
+            with open(vdf, encoding="utf-8", errors="replace") as fh:
+                for m in re.finditer(r'"path"\s+"([^"]+)"', fh.read()):
+                    roots.append(m.group(1).replace("\\\\", "\\"))
+    except Exception:
+        pass
+    roots += [r"D:\steam\steamapps\common", r"E:\steam\steamapps\common",
+              r"F:\steam\steamapps\common", r"C:\Program Files (x86)\Steam\steamapps\common"]
+    for r in roots:
+        cand = os.path.join(r, "DARK SOULS III", "Game")
+        if os.path.isfile(os.path.join(cand, "DarkSoulsIII.exe")):
+            return cand
+    return r"D:\steam\steamapps\common\DARK SOULS III\Game"
 
 NULL_MARKERS = {"%null%", "null", ""}
 
@@ -78,7 +141,7 @@ class Yabber:
         self.dcx = os.path.join(directory, "Yabber.DCX.exe")
         for p in (self.exe, self.dcx):
             if not os.path.exists(p):
-                raise SystemExit(f"Yabber not found: {p}")
+                raise SystemExit(f"Yabber not found in: {directory}\n{YABBER_HELP}")
 
     def run(self, tool: str, path: str) -> None:
         proc = subprocess.run([tool, path], capture_output=True, text=True,
@@ -340,7 +403,8 @@ def separator_for(cfg: dict, pack: str, fmg: str) -> str:
     return None
 
 
-def build_one(game: str, out: str, cfg: dict, name: str, log, keep_work: bool) -> dict:
+def build_one(game: str, out: str, cfg: dict, name: str, log, keep_work: bool,
+              yabber_dir: str = "") -> dict:
     primary, secondary = cfg["primary"], cfg["secondary"]
     sep = cfg.get("separator", "\n")
     if sep == "\\n":
@@ -352,7 +416,7 @@ def build_one(game: str, out: str, cfg: dict, name: str, log, keep_work: bool) -
         shutil.rmtree(work)
     os.makedirs(work, exist_ok=True)
 
-    y = Yabber(cfg.get("yabber_dir", YABBER_DIR))
+    y = Yabber(yabber_dir or cfg.get("yabber_dir") or find_yabber())
     stats = {"file": name, "fmg_total": 0, "fmg_merged": 0, "entries": 0, "skipped_fmg": 0}
 
     results = {}  # lang -> final dcx path
@@ -443,9 +507,10 @@ def do_list(game: str, cfg_path: str, primary: str, secondary: str) -> None:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="DS3 双语字幕文本工具")
-    ap.add_argument("--game", default=DEFAULT_GAME, help="游戏 Game 目录")
+    ap.add_argument("--game", default=None, help="游戏 Game 目录 (默认自动定位)")
     ap.add_argument("--out", default=DEFAULT_OUT, help="输出 mod 目录")
     ap.add_argument("--config", default=DEFAULT_CONFIG, help="配置文件")
+    ap.add_argument("--yabber", default="", help="Yabber 所在文件夹（含 Yabber.exe / Yabber.DCX.exe）")
     ap.add_argument("--primary", default=None, help="主语言目录 (默认 zhocn)")
     ap.add_argument("--secondary", default=None, help="副语言目录 (默认 engus)")
     ap.add_argument("--filter", default=None, help="只处理名称匹配的文本包 (通配符)")
@@ -461,14 +526,16 @@ def main(argv=None) -> int:
         cfg["secondary"] = args.secondary
     primary, secondary = cfg.get("primary", "zhocn"), cfg.get("secondary", "engus")
 
-    if not os.path.isdir(args.game):
-        raise SystemExit(f"Game directory not found: {args.game}")
+    game = args.game or default_game()
+    if not os.path.isdir(game):
+        raise SystemExit(f"Game directory not found: {game}\n"
+                         "用 --game 指定 {游戏}\\Game 目录。")
 
     if args.list:
-        do_list(args.game, args.config, primary, secondary)
+        do_list(game, args.config, primary, secondary)
         return 0
 
-    src_game = args.source or args.game
+    src_game = args.source or game
     names = discover(src_game, primary, secondary)
     # ngword 是屏蔽词表，不参与双语显示
     names = [n for n in names if not stem_of(n).lower().startswith("ngword")]
@@ -478,13 +545,13 @@ def main(argv=None) -> int:
         raise SystemExit("No text packs to process (base text may not be unpacked)")
 
     t0 = time.time()
-    print(f"Game: {args.game}")
+    print(f"Game: {game}")
     print(f"Output: {args.out}")
     print(f"Languages: {primary} + {secondary}, {len(names)} packs\n")
     all_stats = []
     for name in names:
         print(f"[{name}]")
-        all_stats.append(build_one(src_game, args.out, cfg, name, print, args.keep_work))
+        all_stats.append(build_one(src_game, args.out, cfg, name, print, args.keep_work, args.yabber))
         print()
 
     # 本体文本文件: 游戏读 menu.msgbnd / item.msgbnd 时若没有松散副本会回退到归档原版，

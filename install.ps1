@@ -11,12 +11,43 @@
     * restore.ps1 replays the manifest byte-for-byte
 #>
 param(
-    [string]$GameDir = 'D:\steam\steamapps\common\DARK SOULS III\Game',
+    [string]$GameDir = '',
     [switch]$Force
 )
 $ErrorActionPreference = 'Stop'
 $ModRoot = $PSScriptRoot
 
+function Find-DS3Game {
+    $cands = @()
+    if ($env:DS3_GAME_DIR) { $cands += $env:DS3_GAME_DIR }
+    $steam = $null
+    try { $steam = (Get-ItemProperty 'HKCU:\Software\Valve\Steam' -ErrorAction Stop).SteamPath } catch { }
+    if ($steam) {
+        $cands += (Join-Path $steam 'steamapps\common\DARK SOULS III\Game')
+        $vdf = Join-Path $steam 'steamapps\libraryfolders.vdf'
+        if (Test-Path -LiteralPath $vdf) {
+            foreach ($m in [regex]::Matches((Get-Content -LiteralPath $vdf -Raw), '"path"\s+"([^"]+)"')) {
+                $lib = $m.Groups[1].Value -replace '\\\\', '\'
+                $cands += (Join-Path $lib 'steamapps\common\DARK SOULS III\Game')
+            }
+        }
+    }
+    foreach ($d in 'C:', 'D:', 'E:', 'F:') {
+        $cands += "${d}\steam\steamapps\common\DARK SOULS III\Game"
+        $cands += "${d}\SteamLibrary\steamapps\common\DARK SOULS III\Game"
+    }
+    $cands += 'C:\Program Files (x86)\Steam\steamapps\common\DARK SOULS III\Game'
+    foreach ($c in $cands) {
+        if ($c -and (Test-Path -LiteralPath (Join-Path $c 'DarkSoulsIII.exe'))) { return $c }
+    }
+    return $null
+}
+
+if (-not $GameDir) { $GameDir = Find-DS3Game }
+if (-not $GameDir) {
+    throw ('Game folder not found. Pass it explicitly, e.g.' + "`n" +
+           '  powershell -ExecutionPolicy Bypass -File install.ps1 -GameDir "X:\STEAM\steamapps\common\DARK SOULS III\Game"')
+}
 if (-not (Test-Path (Join-Path $GameDir 'DarkSoulsIII.exe'))) {
     throw "Game directory not found (DarkSoulsIII.exe missing): $GameDir"
 }
@@ -28,7 +59,14 @@ $manifestPath = Join-Path $GameDir '.dualsub-manifest.json'
 $backupRoot = Join-Path $GameDir '.dualsub-backup'
 $records = @()
 
-$files = Get-ChildItem (Join-Path $ModRoot 'msg') -Recurse -File
+$msgRoot = Join-Path $ModRoot 'msg'
+if (-not (Test-Path -LiteralPath $msgRoot)) {
+    throw ("This folder has no msg\ folder - it looks like a git checkout, not the release package.`n" +
+           "Download the release zip (which contains msg\) from:`n" +
+           "  https://github.com/xiangchi7/darksoulsiii-1.15.0-dual-subtitle/releases/latest")
+}
+
+$files = Get-ChildItem $msgRoot -Recurse -File
 foreach ($f in $files) {
     $rel = $f.FullName.Substring($ModRoot.Length + 1)
     $target = Join-Path $GameDir $rel

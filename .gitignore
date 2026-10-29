@@ -1,0 +1,5 @@
+# generated text packs and build scratch - they ship in the Release zip, not in git
+msg/
+source/
+_work/
+*.zip
