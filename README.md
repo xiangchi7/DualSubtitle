@@ -65,7 +65,9 @@ powershell -ExecutionPolicy Bypass -File install.ps1
 msg\zhocn\menu.msgbnd.dcx     ← 生成物（内容同 menu_dlc2 累积版，游戏读本体文件名时用）
 msg\zhocn\menu_dlc1.msgbnd.dcx
 msg\zhocn\menu_dlc2.msgbnd.dcx
+msg\zhocn\item*.msgbnd.dcx     同样生成，但默认配置不合并道具文本（内容同原版）
 msg\engus\...                 同上，英文槽
+source\msg\...                原版文本包副本，重新生成时作为源
 tools\dualsub.py              生成器
 tools\dualsub.config.json     类别开关 + Yabber 路径
 build.ps1 / install.ps1 / restore.ps1
@@ -140,7 +142,9 @@ Configuration keys:
 msg\zhocn\menu.msgbnd.dcx     generated (same content as the cumulative menu_dlc2, used for the base filename)
 msg\zhocn\menu_dlc1.msgbnd.dcx
 msg\zhocn\menu_dlc2.msgbnd.dcx
+msg\zhocn\item*.msgbnd.dcx     generated too, but the default config merges no item text (matches vanilla)
 msg\engus\...                 the same for the English slot
+source\msg\...                pristine copies of the vanilla packs, used as the build source
 tools\dualsub.py              generator
 tools\dualsub.config.json     category switches + Yabber path
 build.ps1 / install.ps1 / restore.ps1
