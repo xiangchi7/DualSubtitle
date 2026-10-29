@@ -1,3 +1,7 @@
 # build scratch + packaged zip
 _work/
 *.zip
+
+# 运行 tools/dualsub.py 时生成的字节码
+__pycache__/
+*.pyc
