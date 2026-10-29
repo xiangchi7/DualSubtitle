@@ -12,7 +12,7 @@ DARK SOULS III 1.15.0 — 以中文显示时下方给出英文，以英文显示
 
 ### 安装
 
-1. 下载 **Releases** 里的 zip（仓库本身不含文本包），解压到任意文件夹。
+1. 下载或 clone 本仓库（`msg\` 里就是生成好的文本包），整个文件夹放到任意位置。
 2. 关闭游戏。
 3. 运行 `install.ps1`（右键 → 使用 PowerShell 运行，或 `powershell -ExecutionPolicy Bypass -File install.ps1`）。脚本会自动到 Steam 库里找 `DARK SOULS III\Game`；找不到就直接传路径：`install.ps1 -GameDir "X:\...\DARK SOULS III\Game"`。
 4. 游戏需为**松散文件**环境（UXM / Nuxe 解包过，`Game\msg\` 里是散开的文本包），否则替换的文件不会被读取。
@@ -71,7 +71,7 @@ tools\dualsub.config.json     类别开关 + Yabber 路径
 build.ps1 / install.ps1 / restore.ps1
 ```
 
-`item*.msgbnd.dcx` 不改动，因此不随包发布 —— 默认配置在道具文本上一个条目都没合并。
+`item*.msgbnd.dcx` 也一并替换，但默认配置在道具文本上一个条目都没合并，内容与原版相同。
 
 ### 已知限制
 
@@ -87,7 +87,7 @@ Adds the *other* language underneath the one you already display: with Simplifie
 
 ### Install
 
-1. Grab the zip from **Releases** (the repository does not carry the text packs) and extract it anywhere.
+1. Download or clone this repository — `msg\` already holds the generated text packs — and put the whole folder anywhere.
 2. Close the game.
 3. Run `install.ps1` (right-click → Run with PowerShell, or `powershell -ExecutionPolicy Bypass -File install.ps1`). It looks for `DARK SOULS III\Game` in your Steam libraries; otherwise pass it: `install.ps1 -GameDir "X:\...\DARK SOULS III\Game"`.
 4. The game needs the loose-file setup (unpacked with UXM / Nuxe, i.e. `Game\msg\` exists as real files) — otherwise the replaced packs are never read.
@@ -146,7 +146,7 @@ tools\dualsub.config.json     category switches + Yabber path
 build.ps1 / install.ps1 / restore.ps1
 ```
 
-`item*.msgbnd.dcx` are left untouched, so they are not shipped — the default config merges nothing in the item text.
+`item*.msgbnd.dcx` are replaced too, but the default config merges nothing in the item text, so their content matches the base game.
 
 ### Known limitations
 

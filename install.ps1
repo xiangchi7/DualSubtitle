@@ -61,9 +61,8 @@ $records = @()
 
 $msgRoot = Join-Path $ModRoot 'msg'
 if (-not (Test-Path -LiteralPath $msgRoot)) {
-    throw ("This folder has no msg\ folder - it looks like a git checkout, not the release package.`n" +
-           "Download the release zip (which contains msg\) from:`n" +
-           "  https://github.com/xiangchi7/darksoulsiii-1.15.0-dual-subtitle/releases/latest")
+    throw ("This folder has no msg\ folder - the text packs are missing.`n" +
+           "Keep the package intact (msg\ + tools\ + the .ps1 files) and run install.ps1 from that folder.")
 }
 
 $files = Get-ChildItem $msgRoot -Recurse -File
