@@ -1,0 +1,71 @@
+﻿<#
+  Install DualSubtitle (dual-language text) into the game (UXM loose-file setup)
+
+  Usage (from the DualSubtitle folder):
+    powershell -ExecutionPolicy Bypass -File install.ps1
+    powershell -ExecutionPolicy Bypass -File install.ps1 -GameDir "D:\steam\steamapps\common\DARK SOULS III\Game"
+
+  Behavior:
+    * copies msg\<lang>\*.msgbnd.dcx into <game>\msg\<lang>\
+    * overwrites are backed up to <game>\.dualsub-backup\ and recorded in <game>\.dualsub-manifest.json
+    * restore.ps1 replays the manifest byte-for-byte
+#>
+param(
+    [string]$GameDir = 'D:\steam\steamapps\common\DARK SOULS III\Game',
+    [switch]$Force
+)
+$ErrorActionPreference = 'Stop'
+$ModRoot = $PSScriptRoot
+
+if (-not (Test-Path (Join-Path $GameDir 'DarkSoulsIII.exe'))) {
+    throw "Game directory not found (DarkSoulsIII.exe missing): $GameDir"
+}
+if (-not $Force -and (Get-Process -Name 'DarkSoulsIII' -ErrorAction SilentlyContinue)) {
+    throw 'The game is running. Close it before installing (or pass -Force).'
+}
+
+$manifestPath = Join-Path $GameDir '.dualsub-manifest.json'
+$backupRoot = Join-Path $GameDir '.dualsub-backup'
+$records = @()
+
+$files = Get-ChildItem (Join-Path $ModRoot 'msg') -Recurse -File
+foreach ($f in $files) {
+    $rel = $f.FullName.Substring($ModRoot.Length + 1)
+    $target = Join-Path $GameDir $rel
+    $existed = Test-Path -LiteralPath $target
+    $backupRel = $null
+
+    if ($existed) {
+        $backupRel = '.dualsub-backup\' + $rel
+        $backupPath = Join-Path $GameDir $backupRel
+        if (-not (Test-Path -LiteralPath $backupPath)) {
+            New-Item -ItemType Directory -Force (Split-Path $backupPath) | Out-Null
+            Copy-Item -LiteralPath $target -Destination $backupPath -Force
+        }
+    }
+
+    New-Item -ItemType Directory -Force (Split-Path $target) | Out-Null
+    Copy-Item -LiteralPath $f.FullName -Destination $target -Force
+
+    $records += [pscustomobject]@{
+        path    = $rel
+        existed = $existed
+        backup  = $backupRel
+        hash    = (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash
+        size    = (Get-Item -LiteralPath $target).Length
+    }
+    Write-Host ("  installed " + $rel)
+}
+
+$manifest = [pscustomobject]@{
+    version     = '1.0'
+    installedAt = (Get-Date).ToString('s')
+    gameDir     = $GameDir
+    files       = $records
+}
+$manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $manifestPath -Encoding UTF8
+
+Write-Host ""
+Write-Host ("Installed: " + $records.Count + " files")
+Write-Host ("Backup dir: " + $backupRoot)
+Write-Host "Start the game offline to apply. Run restore.ps1 to uninstall."

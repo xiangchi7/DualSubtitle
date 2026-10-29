@@ -1,0 +1,23 @@
+{
+  "primary": "zhocn",
+  "secondary": "engus",
+  "separator": "\n",
+  "default_enabled": true,
+  "skip_merge_texts": ["是", "否", "确定", "取消"],
+  "categories": {
+    "Dialogue": true,
+    "Cutscene Subtitles": true,
+    "Dialogue Boxes": "off",
+    "Event Text": "off",
+    "Menu Text": "off",
+    "Key Prompts": "off",
+    "Help Text": "off",
+    "System Messages": "off",
+    "Place Names": "off",
+    "Item Names": "off",
+    "Item Descriptions": "off",
+    "Item Lore": "off",
+    "Blood Messages": "off",
+    "Other": "off"
+  }
+}
