@@ -31,7 +31,9 @@ import time
 import xml.etree.ElementTree as ET
 
 YABBER_DIR = os.environ.get("YABBER_DIR", "")
-DEFAULT_OUT = r"D:\game\dark souls3\mod\DualSubtitle"
+# 默认输出到脚本所在目录下的 DualSubtitle/。以前这里写死成作者本机的
+# "D:\game\dark souls3\mod\DualSubtitle"，别人不带 --out 跑就直接写到一个不存在的路径。
+DEFAULT_OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "DualSubtitle")
 DEFAULT_CONFIG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dualsub.config.json")
 
 YABBER_HELP = (
@@ -508,7 +510,7 @@ def do_list(game: str, cfg_path: str, primary: str, secondary: str) -> None:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="DS3 双语字幕文本工具")
     ap.add_argument("--game", default=None, help="游戏 Game 目录 (默认自动定位)")
-    ap.add_argument("--out", default=DEFAULT_OUT, help="输出 mod 目录")
+    ap.add_argument("--out", default=None, help="输出 mod 目录 (默认: 脚本所在目录下的 DualSubtitle)")
     ap.add_argument("--config", default=DEFAULT_CONFIG, help="配置文件")
     ap.add_argument("--yabber", default="", help="Yabber 所在文件夹（含 Yabber.exe / Yabber.DCX.exe）")
     ap.add_argument("--primary", default=None, help="主语言目录 (默认 zhocn)")
@@ -518,6 +520,11 @@ def main(argv=None) -> int:
     ap.add_argument("--list", action="store_true", help="列出文本包并生成配置模板")
     ap.add_argument("--keep-work", action="store_true", help="保留中间文件")
     args = ap.parse_args(argv)
+
+    if not args.out:
+        args.out = DEFAULT_OUT
+        print(f"未指定 --out，输出到脚本目录: {args.out}")
+        print(f"no --out given, writing to {args.out}")
 
     cfg = load_config(args.config)
     if args.primary:
